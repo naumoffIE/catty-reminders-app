@@ -6,7 +6,6 @@ After=network.target
 User=vanya
 Group=vanya
 WorkingDirectory=/home/vanya/webhook-server
-# Предполагаю, что ты используешь системный питон или venv в этой папке
 ExecStart=/usr/bin/python3 app.py
 Restart=always
 
