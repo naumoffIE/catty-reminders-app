@@ -2,16 +2,38 @@ name: CI
 
 on:
   push:
-    branches: [ lab3* ]
+    branches: [ lab4* ]
   pull_request:
-    branches: [ lab3* ]
+    branches: [ lab4* ]
 
 jobs:
-  tests:
+  docker-lint:
     runs-on: ubuntu-latest
-    permissions:
-        contents: read
-        packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        continue-on-error: true
+        with:
+          dockerfile: Dockerfile
+
+  tests:
+    needs: docker-lint
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: mypass
+          MYSQL_DATABASE: catty_reminders
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -26,10 +48,13 @@ jobs:
           pip install -r requirements.txt pytest-playwright
           playwright install --with-deps chromium
 
-      - name: Start Application
+      - name: Patch config for CI
+        run: sed -i 's/"host": "db"/"host": "127.0.0.1"/g' config.json
+
+      - name: Start app
         run: |
           nohup uvicorn app.main:app --host 127.0.0.1 --port 8181 &
-          sleep 5
+          sleep 10
 
       - name: Run tests
         env:
@@ -43,12 +68,6 @@ jobs:
           name: test_result
           path: test_result.xml
 
-      - name: Lint Dockerfile with Hadolint
-        uses: hadolint/hadolint-action@v3.1.0
-        continue-on-error: true
-        with:
-          dockerfile: Dockerfile
-
   build-and-push:
     needs: tests
     runs-on: ubuntu-latest
@@ -60,13 +79,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prepare Image Name
+      - name: Prepare image name
         id: prep
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           echo "repo_lower=${REPO_LOWER}" >> $GITHUB_OUTPUT
 
-      - name: Login to GitHub Container Registry
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io

@@ -1,4 +1,5 @@
-name: Deploy
+name: CD
+
 on:
   release:
     types: [published]
@@ -7,40 +8,25 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Prepare Image Name
-        id: prep
-        run: |
-          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          echo "repo_lower=${REPO_LOWER}" >> $GITHUB_OUTPUT
-
-      - name: Remote Docker Deploy
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Deploy via Docker Compose
+        uses: appleboy/ssh-action@v1
         with:
           host: course.prafdin.ru
           username: vanya
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 3116
           script: |
-            IMAGE="ghcr.io/${{ steps.prep.outputs.repo_lower }}:latest"
-            CONTAINER_NAME="catty-container"
+            cd /home/vanya/catty-reminders-app
+            git fetch origin
+            git reset --hard origin/lab4
 
-            echo "Logging in to GHCR..."
+            export APP_IMAGE=ghcr.io/naumoffie/catty-reminders-app:${{ github.sha }}
+            export DEPLOY_REF=${{ github.sha }}
+            export MYSQL_ROOT_PASSWORD=mypass
+            export MYSQL_DATABASE=catty_reminders
+
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            echo "Pulling image: $IMAGE"
-            docker pull $IMAGE
-
-            docker stop $CONTAINER_NAME || true
-            docker rm $CONTAINER_NAME || true
-
-            docker run -d \
-              --name $CONTAINER_NAME \
-              -p 8181:8181 \
-              --restart unless-stopped \
-              -e DEPLOY_REF=${{ github.sha }} \
-              $IMAGE
+            docker compose up -d --pull always --remove-orphans --force-recreate
 
             docker image prune -f
