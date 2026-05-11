@@ -21,7 +21,6 @@ jobs:
             git reset --hard origin/lab4
 
             export APP_IMAGE=ghcr.io/naumoffie/catty-reminders-app:${{ github.sha }}
-            export DEPLOY_REF=${{ github.sha }}
             export MYSQL_ROOT_PASSWORD=mypass
             export MYSQL_DATABASE=catty_reminders
 

@@ -6,7 +6,6 @@ services:
     container_name: catty-app
     restart: unless-stopped
     environment:
-      - DEPLOY_REF=${DEPLOY_REF:-unknown}
     ports:
       - "8181:8181"
     volumes:
