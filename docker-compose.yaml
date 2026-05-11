@@ -1,11 +1,9 @@
 name: catty
-
 services:
   app:
     image: ${APP_IMAGE:-ghcr.io/naumoffie/catty-reminders-app:latest}
     container_name: catty-app
     restart: unless-stopped
-    environment:
     ports:
       - "8181:8181"
     volumes:
@@ -15,7 +13,6 @@ services:
         condition: service_healthy
     networks:
       - catty-network
-
   db:
     image: mysql:8.0
     container_name: catty-db
@@ -31,10 +28,8 @@ services:
       retries: 10
     networks:
       - catty-network
-
 networks:
   catty-network:
     driver: bridge
-
 volumes:
   db_data:
